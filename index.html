@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Agenda Semanal e Mensal</title>
+  <style>
+    :root{--bg:#f5f8fb;--card:#ffffff;--accent:#2563eb;--muted:#6b7280;--muted-dark:#374151}
+    *{box-sizing:border-box}
+    body{font-family:Inter,Segoe UI,Roboto,Helvetica,Arial,sans-serif;margin:0;background:var(--bg);color:#0f172a;display:flex;flex-direction:column;align-items:center;gap:18px;padding:28px}
+    .container{width:100%;max-width:1200px}
+    header{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+    h1{font-size:20px;margin:0}
+    p.lead{margin:4px 0 0;color:var(--muted);font-size:13px}
+
+    .tabs{display:flex;gap:8px;margin-top:20px}
+    .tab{padding:10px 14px;border-radius:8px;background:#e0e7ff;color:#1e3a8a;cursor:pointer;font-weight:600}
+    .tab.active{background:var(--accent);color:white}
+
+    .card{background:var(--card);border-radius:12px;padding:16px;box-shadow:0 6px 18px rgba(16,24,40,0.06);margin-top:20px}
+
+    table{width:100%;border-collapse:collapse;margin-top:18px}
+    th,td{padding:12px 14px;border:1px solid #e5e7eb;text-align:left;vertical-align:top}
+    th{background:linear-gradient(90deg,#1e40af 0%, #2563eb 100%);color:white;text-transform:uppercase;font-size:12px;letter-spacing:.6px}
+    tr.empty td{color:var(--muted);font-style:italic}
+
+    .calendar-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;margin-top:18px}
+    .calendar-header{display:grid;grid-template-columns:repeat(7,1fr);text-align:center;font-weight:600;margin-top:10px;color:#1e3a8a}
+    .day-cell{background:white;border:1px solid #e5e7eb;min-height:100px;border-radius:8px;padding:6px;display:flex;flex-direction:column;gap:4px}
+    .day-number{font-weight:600;font-size:14px;color:#1e3a8a}
+    .event{font-size:12px;line-height:1.4;background:#e0f2fe;padding:2px 4px;border-radius:4px}
+
+    .controls{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+    .btn{background:var(--accent);color:white;border:none;padding:10px 14px;border-radius:8px;cursor:pointer;font-weight:600}
+    .btn:disabled{opacity:.5;cursor:not-allowed}
+
+    .footer{display:flex;justify-content:space-between;gap:12px;align-items:center;margin-top:16px;font-size:13px;color:var(--muted)}
+
+    .month-title{text-align:center;font-size:18px;font-weight:700;color:#1e3a8a;margin-top:10px}
+
+    .item-title{font-weight:700}
+    .item-desc{font-size:12px;color:var(--muted-dark)}
+
+    .label{font-size:11px;font-weight:600;color:white;border-radius:4px;padding:1px 4px;margin-left:6px;}
+    .label-tecnico{background:#2563eb}
+    .label-administrativo{background:#16a34a}
+    .label-compras{background:#9333ea}
+    .label-comercial{background:#f59e0b}
+    .priority{color:red}
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <div>
+        <h1>Agenda — Visualização Semanal e Mensal</h1>
+        <p class="lead">Selecione um arquivo JSON para gerar a agenda semanal ou mensal.</p>
+      </div>
+      <div class="controls">
+        <input id="fileInput" type="file" accept="application/json" />
+        <button id="loadBtn" class="btn" disabled>Carregar</button>
+        <button id="downloadBtn" class="btn" disabled style="display:none">Baixar Tabela (Semanal)</button>
+        <button id="downloadMonthBtn" class="btn" disabled style="display:none">Baixar Calendário (Mensal)</button>
+      </div>
+    </header>
+
+    <div class="tabs">
+      <div id="tabWeek" class="tab active">Semana</div>
+      <div id="tabMonth" class="tab">Mês</div>
+    </div>
+
+    <section id="weekView" class="card">
+      <h2>Agenda Semanal</h2>
+      <table id="agendaTable">
+        <thead>
+          <tr><th>Dia</th><th>Compromissos</th></tr>
+        </thead>
+        <tbody><tr class="empty"><td colspan="2">Nenhum dado.</td></tr></tbody>
+      </table>
+    </section>
+
+    <section id="monthView" class="card" style="display:none">
+      <h2>Agenda Mensal</h2>
+      <div id="monthTitle" class="month-title"></div>
+      <div class="calendar-header">
+        <div>Seg</div><div>Ter</div><div>Qua</div><div>Qui</div><div>Sex</div><div>Sáb</div><div>Dom</div>
+      </div>
+      <div id="calendar" class="calendar-grid"></div>
+    </section>
+  </div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+  <script>
+    const TARGET_LISTS = [
+      'Segunda Semana Atual','Terça Atual','Quarta Atual','Quinta Atual','Sexta Atual',
+      'Final de semana',
+      'Segunda que vem','Terça que vem','Quarta que vem','Quinta que vem','Sexta que vem',
+      'Faturar',
+      'Pendências',
+      'Observações'];
+
+    const LABEL_CLASSES = {
+      'Técnico': 'label-tecnico',
+      'Administrativo': 'label-administrativo',
+      'Compras': 'label-compras',
+      'Comercial': 'label-comercial'
+    };
+
+    const fileInput=document.getElementById('fileInput');
+    const loadBtn=document.getElementById('loadBtn');
+    const downloadBtn=document.getElementById('downloadBtn');
+    const downloadMonthBtn=document.getElementById('downloadMonthBtn');
+    const tbody=document.querySelector('#agendaTable tbody');
+    const calendar=document.getElementById('calendar');
+    const monthTitle=document.getElementById('monthTitle');
+
+    let agendaData=null;
+
+    fileInput.addEventListener('change',()=>{loadBtn.disabled=!fileInput.files.length});
+    loadBtn.addEventListener('click',async()=>{
+      const f=fileInput.files[0]; if(!f) return;
+      const txt=await f.text(); const obj=JSON.parse(txt);
+      agendaData=parseAgendaFromJson(obj);
+      renderWeek(agendaData);
+      renderMonth(agendaData);
+      downloadBtn.disabled=false;
+      downloadMonthBtn.disabled=false;
+      updateDownloadButtons('week');
+    });
+
+    downloadBtn.addEventListener('click',()=>{
+      html2canvas(document.querySelector('#weekView')).then(c=>{
+        const link=document.createElement('a'); link.download='agenda-semana.png'; link.href=c.toDataURL(); link.click();
+      });
+    });
+
+    downloadMonthBtn.addEventListener('click',()=>{
+      html2canvas(document.querySelector('#monthView')).then(c=>{
+        const link=document.createElement('a'); link.download='agenda-mes.png'; link.href=c.toDataURL(); link.click();
+      });
+    });
+
+    document.getElementById('tabWeek').onclick=()=>{switchTab('week')}
+    document.getElementById('tabMonth').onclick=()=>{switchTab('month')}
+
+    function switchTab(tab){
+      document.getElementById('tabWeek').classList.remove('active');
+      document.getElementById('tabMonth').classList.remove('active');
+      document.getElementById('weekView').style.display='none';
+      document.getElementById('monthView').style.display='none';
+      if(tab==='week'){
+        document.getElementById('tabWeek').classList.add('active');
+        document.getElementById('weekView').style.display='block';
+      } else {
+        document.getElementById('tabMonth').classList.add('active');
+        document.getElementById('monthView').style.display='block';
+      }
+      updateDownloadButtons(tab);
+    }
+
+    function updateDownloadButtons(tab){
+      if(tab==='week'){
+        downloadBtn.style.display='inline-block';
+        downloadMonthBtn.style.display='none';
+      } else {
+        downloadBtn.style.display='none';
+        downloadMonthBtn.style.display='inline-block';
+      }
+    }
+
+    function parseAgendaFromJson(root){
+      if(Array.isArray(root) && root.every(x=>x.dia||x.day||x.data)){
+        return root.map(x=>(
+          {dia:x.dia||x.day||null, compromissos:Array.isArray(x.compromissos)?x.compromissos:[x.compromissos].filter(Boolean), data:x.data||null, descricao:x.descricao||null, labels:x.labels||[]}));
+      }
+      if(root.lists && root.cards){
+        const listMap={};
+        root.lists.forEach(l=>{listMap[l.id]=l.name});
+        const items=[];
+        root.cards.forEach(c=>{
+          if(c.closed) return;
+          items.push({dia:listMap[c.idList]||null, compromissos:[{titulo:c.name,descricao:c.desc||null,labels:c.labels||[]}], data:c.due||null});
+        });
+        return items;
+      }
+      return [];
+    }
+
+    function renderWeek(data){
+      tbody.innerHTML='';
+      const today=new Date();
+      today.setHours(0,0,0,0); // comparar apenas a data
+      const baseDay=today.getDate();
+      const baseWeekDay=today.getDay();
+
+      TARGET_LISTS.forEach((d,i)=>{
+        let label=d;
+        let dateLabel=null;
+
+        if(d!=="Pendências" && d!=="Observações" && d!=="Faturar"){
+          if(d==="Final de semana"){
+            const saturday=new Date(today);
+            const sunday=new Date(today);
+            saturday.setDate(baseDay + (6 - baseWeekDay));
+            sunday.setDate(saturday.getDate() + 1);
+            label=`${d} (${saturday.getDate()} e ${sunday.getDate()})`;
+            dateLabel=saturday;
+          } else {
+            let dayOffset=i-(baseWeekDay-1);
+            if(baseWeekDay===0) dayOffset=i+1;
+            if(i>=6 && i<=10){dayOffset+=1;}
+            dateLabel=new Date(today);
+            dateLabel.setDate(baseDay+dayOffset);
+            label=`${d} (${dateLabel.getDate()})`;
+          }
+        }
+
+        // pular dias já passados
+        if(dateLabel && dateLabel < today) return;
+
+        const compromissos=data.filter(x=>x.dia===d).flatMap(x=>x.compromissos);
+        const tr=document.createElement('tr');
+        const tdDay=document.createElement('td');tdDay.textContent=label;
+        const tdComp=document.createElement('td');
+        if(compromissos.length){
+          tdComp.innerHTML=compromissos.map(c=>{
+            let titleClass="item-title";
+            if(c.labels && c.labels.some(l=>l.name==="Prioridade")) titleClass+=" priority";
+            let labelHtml="";
+            (c.labels||[]).forEach(l=>{
+              if(LABEL_CLASSES[l.name]){
+                labelHtml+=`<span style="display:inline-block; width:82px!important; text-align:center; margin-right:5px;" class="label ${LABEL_CLASSES[l.name]}">${l.name} </span>`;
+              }
+            });
+            return `<div>&bull;&nbsp;${labelHtml}<span class="${titleClass}">${c.titulo}</span>${c.descricao?`<div class="item-desc">&nbsp;&nbsp;&nbsp;${c.descricao}</div>`:''}</div>`;
+          }).join('');
+        } else {
+          tdComp.innerHTML='-';
+        }
+        tr.appendChild(tdDay); tr.appendChild(tdComp);
+        tbody.appendChild(tr);
+      });
+    }
+
+    function renderMonth(data){
+      calendar.innerHTML='';
+      const now=new Date();
+      const year=now.getFullYear(); const month=now.getMonth();
+      const monthNames=['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+      monthTitle.textContent=monthNames[month]+" "+year;
+
+      const firstDay=(new Date(year,month,1).getDay()+6)%7;
+      const daysInMonth=new Date(year,month+1,0).getDate();
+
+      for(let i=0;i<firstDay;i++){
+        const cell=document.createElement('div');cell.className='day-cell';calendar.appendChild(cell);
+      }
+      for(let d=1;d<=daysInMonth;d++){
+        const cell=document.createElement('div');cell.className='day-cell';
+        const num=document.createElement('div');num.className='day-number';num.textContent=d;
+        cell.appendChild(num);
+        const items=data.filter(x=>new Date(x.data).getDate()===d && new Date(x.data).getMonth()===month);
+        items.forEach(it=>{
+          (it.compromissos||[]).forEach(c=>{
+            let titleClass="item-title";
+            if(c.labels && c.labels.some(l=>l.name==="Prioridade")) titleClass+=" priority";
+            let labelHtml="";
+            (c.labels||[]).forEach(l=>{
+              if(LABEL_CLASSES[l.name]){
+                labelHtml+=`<span class="label ${LABEL_CLASSES[l.name]}">${l.name}</span>`;
+              }
+            });
+            const ev=document.createElement('div');ev.className='event';ev.innerHTML=`${labelHtml}<span class="${titleClass}">${c.titulo}</span>`;cell.appendChild(ev);
+          });
+        });
+        calendar.appendChild(cell);
+      }
+    }
+  </script>
+</body>
+</html>

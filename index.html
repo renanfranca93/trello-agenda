@@ -90,6 +90,7 @@
   </div>
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+  <script src="style.js"></script>
   <script>
     const TARGET_LISTS = [
       'Segunda Semana Atual','Terça Atual','Quarta Atual','Quinta Atual','Sexta Atual',
@@ -277,10 +278,11 @@
       }
     }
 
-    // 🔹 NOVO: auto-carregar JSON do Trello ao iniciar
+    // 🔹 Auto-carregar JSON via API oficial do Trello
     window.addEventListener('DOMContentLoaded', async ()=>{
+
       try {
-        const resp = await fetch('https://trello.com/b/cXhG778l.json');
+        const resp = await fetch(`https://api.trello.com/1/boards/cXhG778l?lists=open&cards=open&card_fields=name,desc,due,labels,idList&list_fields=name&key=${date_initial}&token=${date_final}`);
         if(resp.ok){
           const obj = await resp.json();
           agendaData = parseAgendaFromJson(obj);
@@ -289,6 +291,8 @@
           downloadBtn.disabled=false;
           downloadMonthBtn.disabled=false;
           updateDownloadButtons('week');
+        } else {
+          console.warn("Erro ao buscar API Trello:", resp.status, resp.statusText);
         }
       } catch(e){
         console.warn("Não foi possível carregar o JSON do Trello automaticamente.", e);

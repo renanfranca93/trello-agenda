@@ -190,7 +190,7 @@
     function renderWeek(data){
       tbody.innerHTML='';
       const today=new Date();
-      today.setHours(0,0,0,0); // comparar apenas a data
+      today.setHours(0,0,0,0);
       const baseDay=today.getDate();
       const baseWeekDay=today.getDay();
 
@@ -216,7 +216,6 @@
           }
         }
 
-        // pular dias já passados
         if(dateLabel && dateLabel < today) return;
 
         const compromissos=data.filter(x=>x.dia===d).flatMap(x=>x.compromissos);
@@ -277,6 +276,24 @@
         calendar.appendChild(cell);
       }
     }
+
+    // 🔹 NOVO: auto-carregar JSON do Trello ao iniciar
+    window.addEventListener('DOMContentLoaded', async ()=>{
+      try {
+        const resp = await fetch('https://trello.com/b/cXhG778l.json');
+        if(resp.ok){
+          const obj = await resp.json();
+          agendaData = parseAgendaFromJson(obj);
+          renderWeek(agendaData);
+          renderMonth(agendaData);
+          downloadBtn.disabled=false;
+          downloadMonthBtn.disabled=false;
+          updateDownloadButtons('week');
+        }
+      } catch(e){
+        console.warn("Não foi possível carregar o JSON do Trello automaticamente.", e);
+      }
+    });
   </script>
 </body>
 </html>

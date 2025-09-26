@@ -90,7 +90,6 @@
   </div>
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
-  <script src="style.js"></script>
   <script>
     const TARGET_LISTS = [
       'Segunda Semana Atual','Terça Atual','Quarta Atual','Quinta Atual','Sexta Atual',
@@ -191,7 +190,7 @@
     function renderWeek(data){
       tbody.innerHTML='';
       const today=new Date();
-      today.setHours(0,0,0,0);
+      today.setHours(0,0,0,0); // comparar apenas a data
       const baseDay=today.getDate();
       const baseWeekDay=today.getDay();
 
@@ -217,6 +216,7 @@
           }
         }
 
+        // pular dias já passados
         if(dateLabel && dateLabel < today) return;
 
         const compromissos=data.filter(x=>x.dia===d).flatMap(x=>x.compromissos);
@@ -277,27 +277,6 @@
         calendar.appendChild(cell);
       }
     }
-
-    // 🔹 Auto-carregar JSON via API oficial do Trello
-    window.addEventListener('DOMContentLoaded', async ()=>{
-
-      try {
-        const resp = await fetch(`https://api.trello.com/1/boards/cXhG778l?lists=open&cards=open&card_fields=name,desc,due,labels,idList&list_fields=name&key=${date_initial}&token=${date_final}`);
-        if(resp.ok){
-          const obj = await resp.json();
-          agendaData = parseAgendaFromJson(obj);
-          renderWeek(agendaData);
-          renderMonth(agendaData);
-          downloadBtn.disabled=false;
-          downloadMonthBtn.disabled=false;
-          updateDownloadButtons('week');
-        } else {
-          console.warn("Erro ao buscar API Trello:", resp.status, resp.statusText);
-        }
-      } catch(e){
-        console.warn("Não foi possível carregar o JSON do Trello automaticamente.", e);
-      }
-    });
   </script>
 </body>
 </html>

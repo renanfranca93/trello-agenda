@@ -95,6 +95,7 @@
       'Segunda Semana Atual','Terça Atual','Quarta Atual','Quinta Atual','Sexta Atual',
       'Final de semana',
       'Segunda que vem','Terça que vem','Quarta que vem','Quinta que vem','Sexta que vem',
+      'Compras/Estoque',
       'Faturar',
       'Pendências',
       'Observações'];
@@ -197,7 +198,7 @@
         let label=d;
         let dateLabel=null;
 
-        if(d!=="Pendências" && d!=="Observações" && d!=="Faturar"){
+        if(d!=="Pendências" && d!=="Observações" && d!=="Faturar" && d!=="Compras/Estoque"){
           if(d==="Final de semana"){
             const saturday=new Date(today);
             const sunday=new Date(today);
